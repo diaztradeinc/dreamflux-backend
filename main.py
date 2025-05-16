@@ -43,8 +43,8 @@ async def generate_text(req: TextRequest):
 
     payload = {
         "text_prompts": [
-            {"text": req.prompt},
-            {"text": req.negative_prompt}
+            {"text": req.prompt, "weight": 1.0},
+            {"text": req.negative_prompt, "weight": -1.0}
         ],
         "cfg_scale": req.cfg_scale,
         "height": req.height,

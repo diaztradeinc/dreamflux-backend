@@ -47,6 +47,12 @@ async def generate_text(req: TextRequest):
             {"text": req.prompt, "weight": 1.0},
             {"text": req.negative_prompt, "weight": -1.0}
         ],
+        "cfg_scale": float(req.cfg_scale),
+        "height": int(req.height),
+        "width": int(req.width),
+        "samples": 1,
+        "steps": int(req.steps),
+        "seed": int(req.seed if req.seed is not None else -1)
         "cfg_scale": req.cfg_scale,
         "height": req.height,
         "width": req.width,
@@ -55,6 +61,8 @@ async def generate_text(req: TextRequest):
         "seed": req.seed,
         "style_preset": req.style_preset
     }
+
+    print("Sending payload to Stability API:", payload)
 
     endpoint = f"https://api.stability.ai/v1/generation/{req.model}/text-to-image"
     response = requests.post(endpoint, headers=headers, json=payload)

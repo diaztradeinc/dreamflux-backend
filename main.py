@@ -114,3 +114,14 @@ async def generate_image(
         return {"image_base64": f"data:image/png;base64,{image_data}"}
     else:
         return {"error": "No image returned"}
+
+
+from fastapi.responses import JSONResponse
+
+@app.options("/generate-text")
+async def options_generate_text():
+    return JSONResponse(content={"status": "ok"}, headers={
+        "Access-Control-Allow-Origin": "https://magenta-fenglisu-2f0aec.netlify.app",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*"
+    })

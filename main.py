@@ -1,6 +1,7 @@
 
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 import requests
@@ -9,14 +10,12 @@ import os
 
 app = FastAPI()
 
-origins = ["https://magenta-fenglisu-2f0aec.netlify.app"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["https://magenta-fenglisu-2f0aec.netlify.app"],
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
-    allow_credentials=True,
+    allow_credentials=True
 )
 
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY") or "your-api-key-here"
@@ -52,13 +51,7 @@ async def generate_text(req: TextRequest):
         "width": int(req.width),
         "samples": 1,
         "steps": int(req.steps),
-        "seed": int(req.seed if req.seed is not None else -1)
-        "cfg_scale": req.cfg_scale,
-        "height": req.height,
-        "width": req.width,
-        "samples": 1,
-        "steps": req.steps,
-        "seed": req.seed,
+        "seed": int(req.seed if req.seed is not None else -1),
         "style_preset": req.style_preset
     }
 
@@ -122,9 +115,6 @@ async def generate_image(
         return {"image_base64": f"data:image/png;base64,{image_data}"}
     else:
         return {"error": "No image returned"}
-
-
-from fastapi.responses import JSONResponse
 
 @app.options("/generate-text")
 async def options_generate_text():

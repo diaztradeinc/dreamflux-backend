@@ -1,6 +1,7 @@
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import Optional
 import requests
 import base64
@@ -19,39 +20,44 @@ app.add_middleware(
 
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY") or "your-api-key-here"
 
+class TextRequest(BaseModel):
+    prompt: str
+    negative_prompt: Optional[str] = ""
+    steps: int = 30
+    cfg_scale: float = 7.0
+    width: int = 768
+    height: int = 768
+    sampler: Optional[str] = "auto"
+    seed: Optional[int] = -1
+    model: str = "stable-diffusion-xl-1024-v1-0"
+    style_preset: Optional[str] = ""
+    clip_guidance_preset: Optional[str] = "NONE"
+
 @app.post("/generate-text")
-async def generate_text(
-    prompt: str = Form(...),
-    negative_prompt: Optional[str] = Form(""),
-    steps: int = Form(30),
-    cfg_scale: float = Form(7.0),
-    width: int = Form(768),
-    height: int = Form(768),
-    sampler: Optional[str] = Form("auto"),
-    seed: Optional[int] = Form(-1),
-    model: str = Form("stable-diffusion-xl-1024-v1-0"),
-    style_preset: Optional[str] = Form(""),
-    clip_guidance_preset: Optional[str] = Form("NONE"),
-):
+async def generate_text(req: TextRequest):
     headers = {
         "Authorization": f"Bearer {STABILITY_API_KEY}",
+        "Content-Type": "application/json",
         "Accept": "application/json"
     }
 
-    endpoint = f"https://api.stability.ai/v1/generation/{model}/text-to-image"
     payload = {
-        "text_prompts[0][text]": prompt,
-        "text_prompts[1][text]": negative_prompt,
-        "cfg_scale": cfg_scale,
-        "height": height,
-        "width": width,
+        "text_prompts": [
+            {"text": req.prompt},
+            {"text": req.negative_prompt}
+        ],
+        "cfg_scale": req.cfg_scale,
+        "height": req.height,
+        "width": req.width,
         "samples": 1,
-        "steps": steps,
-        "seed": seed,
-        "style_preset": style_preset,
+        "steps": req.steps,
+        "seed": req.seed,
+        "style_preset": req.style_preset
     }
 
-    response = requests.post(endpoint, headers=headers, data=payload)
+    endpoint = f"https://api.stability.ai/v1/generation/{req.model}/text-to-image"
+    response = requests.post(endpoint, headers=headers, json=payload)
+
     if response.status_code != 200:
         return {"error": response.text}
 
@@ -97,6 +103,7 @@ async def generate_image(
     }
 
     response = requests.post(endpoint, headers=headers, files=files, data=payload)
+
     if response.status_code != 200:
         return {"error": response.text}
 

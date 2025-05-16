@@ -17,7 +17,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=True,
-    allow_headers=["*"],
 )
 
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY") or "your-api-key-here"

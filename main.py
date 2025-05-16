@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, File, UploadFile, Form
+from fastapi import FastAPI, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -20,101 +20,34 @@ app.add_middleware(
 
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY") or "your-api-key-here"
 
-class TextRequest(BaseModel):
+class V2PromptRequest(BaseModel):
     prompt: str
-    negative_prompt: Optional[str] = ""
-    steps: int = 30
-    cfg_scale: float = 7.0
-    width: int = 768
-    height: int = 768
-    sampler: Optional[str] = "auto"
-    seed: Optional[int] = -1
-    model: str = "stable-diffusion-xl-1024-v1-0"
-    style_preset: Optional[str] = ""
-    clip_guidance_preset: Optional[str] = "NONE"
+    output_format: Optional[str] = "webp"
 
 @app.post("/generate-text")
-async def generate_text(req: TextRequest):
+async def generate_text(req: V2PromptRequest):
     headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        "authorization": f"Bearer {STABILITY_API_KEY}",
+        "accept": "image/*"
     }
 
-    payload = {
-        "text_prompts": [
-            {"text": req.prompt, "weight": 1.0},
-            {"text": req.negative_prompt, "weight": -1.0}
-        ],
-        "cfg_scale": float(req.cfg_scale),
-        "height": int(req.height),
-        "width": int(req.width),
-        "samples": 1,
-        "steps": int(req.steps),
-        "seed": int(req.seed if req.seed is not None else -1),
-        "style_preset": req.style_preset
+    data = {
+        "prompt": req.prompt,
+        "output_format": req.output_format
     }
 
-    print("Sending payload to Stability API:", payload)
+    response = requests.post(
+        "https://api.stability.ai/v2beta/stable-image/generate/core",
+        headers=headers,
+        files={"none": ''},  # required dummy field for multipart/form-data
+        data=data
+    )
 
-    endpoint = f"https://api.stability.ai/v1/generation/{req.model}/text-to-image"
-    response = requests.post(endpoint, headers=headers, json=payload)
-
-    if response.status_code != 200:
-        return {"error": response.text}
-
-    data = response.json()
-    if "artifacts" in data and len(data["artifacts"]) > 0:
-        image_data = data["artifacts"][0]["base64"]
-        return {"image_base64": f"data:image/png;base64,{image_data}"}
+    if response.status_code == 200:
+        encoded = base64.b64encode(response.content).decode("utf-8")
+        return {"image_base64": f"data:image/{req.output_format};base64,{encoded}"}
     else:
-        return {"error": "No image returned"}
-
-@app.post("/generate-image")
-async def generate_image(
-    prompt: str = Form(...),
-    negative_prompt: Optional[str] = Form(""),
-    steps: int = Form(30),
-    cfg_scale: float = Form(7.0),
-    width: int = Form(768),
-    height: int = Form(768),
-    seed: Optional[int] = Form(-1),
-    model: str = Form("stable-diffusion-xl-1024-v1-0"),
-    style_preset: Optional[str] = Form(""),
-    image_strength: Optional[float] = Form(0.5),
-    init_image: UploadFile = File(...)
-):
-    headers = {
-        "Authorization": f"Bearer {STABILITY_API_KEY}",
-        "Accept": "application/json"
-    }
-
-    image_bytes = await init_image.read()
-    endpoint = f"https://api.stability.ai/v1/generation/{model}/image-to-image"
-    files = {"init_image": image_bytes}
-    payload = {
-        "prompt": prompt,
-        "negative_prompt": negative_prompt,
-        "steps": steps,
-        "cfg_scale": cfg_scale,
-        "width": width,
-        "height": height,
-        "seed": seed,
-        "style_preset": style_preset,
-        "image_strength": image_strength
-    }
-
-    response = requests.post(endpoint, headers=headers, files=files, data=payload)
-
-    if response.status_code != 200:
-        return {"error": response.text}
-
-    data = response.json()
-    if "artifacts" in data and len(data["artifacts"]) > 0:
-        image_data = data["artifacts"][0]["base64"]
-        return {"image_base64": f"data:image/png;base64,{image_data}"}
-    else:
-        return {"error": "No image returned"}
+        return {"error": response.json()}
 
 @app.options("/generate-text")
 async def options_generate_text():
